@@ -1,73 +1,48 @@
-# RISC-V Pipelined CPU + AXI Accelerator on Tang Nano 20K
+# Roadmap and acceptance criteria
 
-Target board: **Tang Primer 20K** + Dock (Gowin **GW2A-18C**, `GW2A-LV18PG256C8/I7`, PBGA256, ~20.7k LUTs, block SRAM, **128 MB DDR3** on-board)
-HDL: **Verilog-2001**
-Sim first: **Verilator / Icarus Verilog**, then **Gowin EDA** for synthesis.
+The current deliverable is the RV32I datapath + serial-loader simulation
+platform. Prioritize reproducibility and FPGA memory/timing closure before
+expanding the accelerator scope.
 
-## Guiding goal
-Run real **C programs** on the core, then offload heavy math (matrix-vector multiply) to an
-**AXI-attached accelerator** so we can run a *tiny* transformer (llama2.c "stories" 260K–15M param
-class, INT8/INT16) — a strong, honest resume story: "custom RV32IM soft-core + AXI4 systolic MAC
-accelerator running a quantized language model."
+| Milestone | State | Evidence required to call it complete |
+| --- | --- | --- |
+| Five-stage integer pipeline | Implemented; selected regressions pass | Directed dependencies, branches, memory lanes and repeatable ALU tests |
+| C runtime and resident loader | Implemented; simulated | Fresh monitor/app builds; accepted/rejected commands; uploaded C output on serial TX |
+| Automated regression | Added | Green hosted CI using the checked-in command; retained logs and source digest |
+| ISA legality / observability | Open | Validate reserved encodings; explicit exception policy; retirement-valid trace; independent reference comparison |
+| FPGA memory subsystem | Open | Synchronous BSRAM-compatible timing contract, stalls/backpressure, same regression passing |
+| Routed FPGA baseline | Open | Current-source utilization, setup/hold report, constraint review and reproducible build settings |
+| Board demonstration | Open | Reset/boot/upload/echo transcript and board capture tied to a source revision |
+| RV32M extension | Planned | All eight operations, dependency interlocks, signed/unsigned high products, division corner cases |
+| AXI4-Lite accelerator prototype | Planned | Separate AW/W acceptance, held responses under backpressure, CSR semantics, scoreboard tests |
+| INT8 dot product | Planned | Bit-exact software reference, overflow contract, measured cycles including data movement |
+| External memory / DMA | Exploratory | Sustained bandwidth, arbitration, reset/error behavior, coherency/ownership contract |
 
-## Reality check on the "LLM"
-A full LLM won't fit or run fast. What *is* achievable and impressive:
-- Port Andrej Karpathy's **llama2.c** (or a stripped `run.c`) to bare-metal RV32IM.
-- The core runs the control/tokenizer/sampling; the **AXI accelerator** does the matmuls
-  (the 90%+ of runtime). Weights streamed from DDR3.
-- Start with the **260K-param tinystories** model, INT8 quantized. Tokens/sec will be low but real.
+## Verification backlog
 
-## Phases
+1. Independent ISA reference/compliance tests and per-retirement checks.
+2. Illegal/reserved encoding and instruction/data alignment behavior.
+3. Exhaustive RX FIFO boundary transitions and reset during UART traffic.
+4. Baud tolerance sweeps, malformed/truncated loader streams and recovery.
+5. Stack high-water measurement and stress at application size boundaries.
+6. CDC/RDC review and timing constraints appropriate to physical implementation.
 
-### Phase 1 — RV32I 5-stage pipeline core (SIM ONLY)  ← we are here
-- [x] Project scaffold
-- [x] Datapath: IF, ID, EX, MEM, WB
-- [x] Full forwarding (EX/MEM, MEM/WB -> EX)
-- [x] Load-use hazard stall
-- [x] Branch resolve in EX + flush
-- [x] Testbench running a generated hex program (sim/tb_top.v + sim/sim_memory.v)
-- [x] Self-checking test with a golden Python ISS (sim/gen_test.py -> program.hex)
-- [x] Run program.hex through Verilog (Icarus) and confirm *** PASS ***
-      — see docs/DESIGN_NOTES.md §3
+## RV32M acceptance details
 
-### Phase 2 — C toolchain + bare-metal runtime
-- [x] `riscv32-unknown-elf-gcc` build flow (crt0.S, linker script)
-- [x] UART TX/RX (memory-mapped), 16-byte RX FIFO, and C UART driver
-- [x] Resident checksummed UART monitor loads and executes RV32I applications
-- [x] PC-side C build emits a Tera Term-ready upload stream
-- [x] End-to-end serial RX/load/execute simulation
-- [ ] Run a larger compute benchmark in sim
-- [ ] riscv-tests / riscof compliance (subset)
+Implement MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU. The multi-cycle unit
+needs operand/result validity and a stall protocol that neither loses nor
+repeats side effects. Check division by zero, signed minimum divided by -1,
+sign of remainder, and dependent instructions immediately before/after completion.
+Keep the compiler at RV32I until RTL and tests support RV32M.
 
-### Phase 3 — Bring-up on Tang Primer 20K
-- [ ] Gowin project, clock (27 MHz osc -> rPLL), reset
-- [ ] BRAM for boot ROM + scratch RAM
-- [x] UART TX/RX pins, LEDs, button constraints
-- [ ] Flash and validate the UART monitor plus uploaded C on physical hardware
+## Performance measurement plan
 
-### Phase 4 — Add the M extension (mul/div)
-- [ ] Multi-cycle multiplier/divider, pipeline stall handshake
+Add a valid retirement event before computing CPI. Measure workload instruction
+mix, active cycles, load stalls and redirect penalties separately from serial
+I/O and setup. For an accelerator, report compute cycles, transfer cycles and
+end-to-end speedup including software launch overhead. Do not convert the
+simulation clock period into a routed hardware frequency claim.
 
-### Phase 5 — Memory system for real workloads
-- [ ] DDR3 controller via Gowin "DDR3 Memory Interface" IP (128 MB on the Dock)
-- [ ] Simple cache or DMA
-
-### Phase 6 — AXI accelerator
-- [ ] AXI4-Lite control/status regs (start, done, base ptrs, dims)
-- [ ] AXI4 (or stream) data path from DDR3
-- [ ] INT8 MAC array (systolic or wide dot-product)
-- [ ] Core-driver library, integrate into matmul kernel
-
-### Phase 7 — Run the tiny model
-- [ ] Port llama2.c inference, replace matmul with accelerator calls
-- [ ] Stream weights, generate tokens over UART
-
-## Layout
-```
-fpga_riscv/
-  rtl/        synthesizable Verilog (core, soc, peripherals, accelerator)
-  sim/        testbenches + hex programs
-  sw/         C runtime, linker script, example programs, build scripts
-  gowin/      Gowin EDA project + constraints (.cst, .sdc)
-  docs/       this roadmap + design notes
-```
+Graphics and language-model demonstrations remain exploratory ideas. There is
+no HDMI pipeline, DDR controller, cache, DMA engine, or inference workload in
+the present implementation.

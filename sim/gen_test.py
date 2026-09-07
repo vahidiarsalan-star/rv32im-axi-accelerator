@@ -9,8 +9,9 @@ exercises the RV32I base ISA and, on success, stores 1 to the "tohost" address
 A built-in Python instruction-set simulator (ISS) runs the same program so the
 *test vector itself* can be validated here, without a Verilog simulator: running
 this file prints "ISS: PASS" when the program reaches the pass store. When you
-run program.hex on the Verilog core, a PASS means the RTL matches this golden
-model for every instruction exercised; a FAIL code tells you which check broke.
+run program.hex on the Verilog core, a PASS means its embedded result checks
+passed; this is not a per-instruction trace comparison. A FAIL code identifies
+the embedded check that broke.
 
 Usage:  python gen_test.py
 """

@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="450" viewBox="0 0 1200 450" role="img" aria-labelledby="title desc">
+  <title id="title">Implemented RV32I CPU and UART SoC</title>
+  <desc id="desc">Five in-order stages with forwarding and EX branch recovery, connected to unified RAM and UART. A PC compiles and uploads C applications. RV32M and AXI are future work.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7dd3fc"/></marker>
+  </defs>
+  <rect width="1200" height="450" rx="18" fill="#0f172a"/>
+  <g font-family="Segoe UI,Arial,sans-serif">
+    <text x="40" y="44" fill="#7dd3fc" font-size="14" letter-spacing="2">MICROARCHITECTURE · RTL VERIFICATION · BARE-METAL SOFTWARE</text>
+    <text x="40" y="85" fill="#f8fafc" font-size="32" font-weight="600">A program, from pipeline to serial output</text>
+    <text x="40" y="113" fill="#cbd5e1" font-size="16">Implemented: RV32I integer datapath + UART SoC  /  Target: Tang Primer 20K</text>
+    <g fill="#1e293b" stroke="#334155" stroke-width="1.5">
+      <rect x="40" y="161" width="188" height="96" rx="10"/>
+      <rect x="270" y="161" width="188" height="96" rx="10"/>
+      <rect x="500" y="161" width="188" height="96" rx="10"/>
+      <rect x="730" y="161" width="188" height="96" rx="10"/>
+      <rect x="960" y="161" width="200" height="96" rx="10"/>
+    </g>
+    <g stroke="#7dd3fc" stroke-width="2" fill="none" marker-end="url(#arrow)">
+      <path d="M228 210 H262"/><path d="M458 210 H492"/>
+      <path d="M688 210 H722"/><path d="M918 210 H952"/>
+      <path d="M824 257 V281 H601 V261" stroke-dasharray="5 5"/>
+      <path d="M1060 257 V302 H574 V261" stroke-dasharray="5 5"/>
+      <path d="M594 161 V137 H134 V157" stroke-dasharray="5 5"/>
+    </g>
+    <g fill="#f8fafc" font-size="22" font-weight="600">
+      <text x="60" y="197">IF</text><text x="290" y="197">ID</text><text x="520" y="197">EX</text><text x="750" y="197">MEM</text><text x="980" y="197">WB</text>
+    </g>
+    <g fill="#cbd5e1" font-size="15">
+      <text x="60" y="229">PC + instruction</text><text x="290" y="229">Decode + registers</text>
+      <text x="520" y="229">ALU + branch</text><text x="750" y="229">Load/store lanes</text>
+      <text x="980" y="229">Result selection</text>
+    </g>
+    <text x="72" y="294" fill="#7dd3fc" font-size="14">EX redirect / two younger slots flushed</text>
+    <text x="748" y="324" fill="#7dd3fc" font-size="14">MEM/WB → EX operand forwarding</text>
+    <rect x="40" y="346" width="1120" height="65" rx="10" fill="#172b3e"/>
+    <text x="60" y="374" fill="#f8fafc" font-size="17">PC-side C build → UART RX / 16-byte FIFO → resident loader → 4 KiB RAM → application → UART TX</text>
+    <text x="60" y="397" fill="#94a3b8" font-size="14">Verified in simulation. RV32M, AXI, routed timing closure and physical-board demonstration remain milestones.</text>
+  </g>
+</svg>

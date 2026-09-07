@@ -23,7 +23,7 @@ $sources = @(
     "tb_uart_monitor.v"
 )
 
-iverilog -g2012 -I $rtl -s tb_uart_monitor -o tb_uart_monitor.out @sources
+iverilog -g2012 -I $rtl -I $PSScriptRoot -s tb_uart_monitor -o tb_uart_monitor.out @sources
 if ($LASTEXITCODE -ne 0) { throw "Icarus compile failed." }
 vvp tb_uart_monitor.out
 if ($LASTEXITCODE -ne 0) { throw "UART monitor simulation failed." }

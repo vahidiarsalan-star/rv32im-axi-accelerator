@@ -1,0 +1,147 @@
+{
+  "generated_utc": "2026-09-07T22:54:21.075500+00:00",
+  "source_sha256": "869c70abe3d046131dacc61675585919a82caac99f5f51c6512fc5fd262d5820",
+  "scope": "full",
+  "status": "PASS",
+  "results": [
+    {
+      "test": "baseline",
+      "status": "PASS",
+      "static_words": 194,
+      "cycles": 202,
+      "stall_cycles": 1,
+      "redirect_events": 6
+    },
+    {
+      "test": "hazards",
+      "status": "PASS",
+      "static_words": 73,
+      "cycles": 76,
+      "stall_cycles": 3,
+      "redirect_events": 2
+    },
+    {
+      "test": "memory_lanes",
+      "status": "PASS",
+      "static_words": 149,
+      "cycles": 149,
+      "stall_cycles": 0,
+      "redirect_events": 1
+    },
+    {
+      "test": "control_flow",
+      "status": "PASS",
+      "static_words": 135,
+      "cycles": 143,
+      "stall_cycles": 0,
+      "redirect_events": 10
+    },
+    {
+      "test": "immediate_edges",
+      "status": "PASS",
+      "static_words": 231,
+      "cycles": 231,
+      "stall_cycles": 0,
+      "redirect_events": 1
+    },
+    {
+      "test": "alu_seed_0",
+      "status": "PASS",
+      "static_words": 245,
+      "cycles": 245,
+      "stall_cycles": 0,
+      "redirect_events": 1
+    },
+    {
+      "test": "alu_seed_1",
+      "status": "PASS",
+      "static_words": 245,
+      "cycles": 245,
+      "stall_cycles": 0,
+      "redirect_events": 1
+    },
+    {
+      "test": "alu_seed_7",
+      "status": "PASS",
+      "static_words": 245,
+      "cycles": 245,
+      "stall_cycles": 0,
+      "redirect_events": 1
+    },
+    {
+      "test": "alu_seed_42",
+      "status": "PASS",
+      "static_words": 245,
+      "cycles": 245,
+      "stall_cycles": 0,
+      "redirect_events": 1
+    },
+    {
+      "test": "alu_seed_2026",
+      "status": "PASS",
+      "static_words": 245,
+      "cycles": 245,
+      "stall_cycles": 0,
+      "redirect_events": 1
+    },
+    {
+      "test": "alu_seed_49374",
+      "status": "PASS",
+      "static_words": 245,
+      "cycles": 245,
+      "stall_cycles": 0,
+      "redirect_events": 1
+    },
+    {
+      "test": "failure_exit",
+      "status": "PASS",
+      "expected_nonzero_exit": true
+    },
+    {
+      "test": "timeout_exit",
+      "status": "PASS",
+      "expected_nonzero_exit": true
+    },
+    {
+      "test": "uart_divisor_10",
+      "status": "PASS",
+      "byte_values": 256,
+      "divisor": 10
+    },
+    {
+      "test": "uart_divisor_234",
+      "status": "PASS",
+      "byte_values": 256,
+      "divisor": 234
+    },
+    {
+      "test": "c_firmware",
+      "status": "PASS"
+    },
+    {
+      "test": "uart_monitor",
+      "status": "PASS"
+    },
+    {
+      "test": "uart_hello_app",
+      "status": "PASS",
+      "upload_bytes": 1582
+    },
+    {
+      "test": "uart_echo_app",
+      "status": "PASS",
+      "upload_bytes": 862
+    }
+  ],
+  "tools": {
+    "python": "3.14.6",
+    "iverilog": "Icarus Verilog version 13.0 (stable) (v13_0)",
+    "gcc": "riscv32-unknown-elf-gcc (GCC) 14.2.0"
+  },
+  "firmware_binary_bytes": {
+    "monitor": 1930,
+    "hello": 615,
+    "echo": 327,
+    "hello_standalone": 615
+  }
+}

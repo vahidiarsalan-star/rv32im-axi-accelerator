@@ -1,5 +1,10 @@
 # Interactive Computer Architecture Tutor for My FPGA RV32I Project
 
+> Archived learning material. This curriculum includes future topics and old
+> source-path references; it is not the current design specification or evidence
+> that every listed milestone was completed. Use the documentation index for
+> the implementation and verification record.
+
 ## How I will use this file
 
 I am the student. I will upload this file to a normal ChatGPT conversation or
@@ -791,4 +796,3 @@ When I first upload this file, do not begin with a long lecture. Say:
 > First diagnostic: in your own words, what is the difference between the
 > RV32I ISA and your `rv32i_core.v` implementation? It is completely fine if
 > you are unsure—your answer determines where we begin.
-

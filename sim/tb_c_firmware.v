@@ -22,7 +22,7 @@ module tb_c_firmware;
     wire [11:0] iw = imem_addr[13:2];
     wire [11:0] dw = dmem_addr[13:2];
     assign imem_rdata = ram[iw];
-    // Model the UART as always ready. The real UART's busy bit is tested on-board.
+    // Model UART as always ready; serial timing is covered by separate tests.
     assign dmem_rdata = (dmem_addr == 32'h8000_0004) ? 32'b0 : ram[dw];
 
     always @(posedge clk) begin
@@ -37,8 +37,8 @@ module tb_c_firmware;
     integer i;
     initial begin
         for (i = 0; i < 4096; i = i + 1) ram[i] = 32'h00000013;
-        $readmemh("firmware.hex", ram);
-        repeat (4) @(posedge clk);
+        $readmemh("firmware.hex", ram, 0, 1023);
+        repeat (4) @(negedge clk);
         rst_n = 1'b1;
     end
 
@@ -66,7 +66,7 @@ module tb_c_firmware;
             cycles = cycles + 1;
             if (cycles > 2000000) begin
                 $display("*** C FIRMWARE TIMEOUT ***");
-                $finish;
+                $fatal(1);
             end
         end
     end

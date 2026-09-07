@@ -22,25 +22,26 @@ all: run
 program.hex: gen_test.py
 	$(PYTHON) gen_test.py
 
-tb_top.out: $(SRCS)
+tb_top.out: $(SRCS) $(RTL)/riscv_defs.vh
 	iverilog -g2012 -I $(RTL) -o $@ $(SRCS)
 
 run: program.hex tb_top.out
 	vvp tb_top.out
 
-tb_c_firmware.out: $(C_SRCS) firmware.hex
+tb_c_firmware.out: $(C_SRCS) $(RTL)/riscv_defs.vh firmware.hex
 	iverilog -g2012 -I $(RTL) -o $@ $(C_SRCS)
 
 cfirmware: tb_c_firmware.out
 	vvp tb_c_firmware.out
 
-tb_uart_monitor.out: $(MONITOR_SRCS) monitor.hex
-	iverilog -g2012 -I $(RTL) -s tb_uart_monitor -o $@ $(MONITOR_SRCS)
+tb_uart_monitor.out: $(MONITOR_SRCS) $(RTL)/riscv_defs.vh uart_test_tasks.vh monitor.hex
+	iverilog -g2012 -I $(RTL) -I . -s tb_uart_monitor -o $@ $(MONITOR_SRCS)
 
 monitor: tb_uart_monitor.out
 	vvp tb_uart_monitor.out
 
-wave: run
+wave: program.hex tb_top.out
+	vvp tb_top.out +WAVES
 	@echo "Open tb_top.vcd in GTKWave to inspect the pipeline."
 
 clean:

@@ -15,7 +15,6 @@ Set-Location -LiteralPath $PSScriptRoot
 # --- locate a Python interpreter -------------------------------------------
 function Find-Python {
     foreach ($c in @(
-        (Join-Path $PSScriptRoot "..\..\yo.venv\Scripts\python.exe"),
         "python", "py", "python3"
     )) {
         $cmd = Get-Command $c -ErrorAction SilentlyContinue
@@ -54,3 +53,4 @@ if ($LASTEXITCODE -ne 0) { Write-Error "iverilog compile failed."; exit 1 }
 
 Write-Host "==> Running vvp" -ForegroundColor Cyan
 vvp tb_top.out
+if ($LASTEXITCODE -ne 0) { throw "RTL simulation failed." }

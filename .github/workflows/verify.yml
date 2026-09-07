@@ -1,0 +1,37 @@
+name: RTL and firmware verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Install simulator and bare-metal cross-compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y iverilog gcc-riscv64-unknown-elf binutils-riscv64-unknown-elf
+      - name: Validate documentation links
+        run: python3 scripts/check_docs.py
+      - name: Run CPU, UART, monitor and compiled application regressions
+        run: python3 sim/run_tests.py
+      - name: Preserve verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-evidence
+          path: |
+            build/verification/*.log
+            build/verification/summary.json
+          if-no-files-found: warn
+          retention-days: 30

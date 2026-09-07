@@ -30,6 +30,7 @@ $linkerScript = Join-Path $PSScriptRoot "link_monitor.ld"
 
 $cflags = @(
     "-march=rv32i", "-mabi=ilp32", "-mcmodel=medlow",
+    "-mno-relax", "-msmall-data-limit=0",
     "-Os", "-ffreestanding", "-fno-builtin",
     "-ffunction-sections", "-fdata-sections",
     "-nostdlib", "-nostartfiles",

@@ -1,6 +1,7 @@
 # Generate the small hand-coded UART test with deterministic CRLF line endings.
 $ErrorActionPreference = "Stop"
 $output = Join-Path $PSScriptRoot "build\machine_bang.uart"
+New-Item -ItemType Directory -Force -Path (Split-Path -Parent $output) | Out-Null
 $lines = @(
     "L 00000800 00000007 810bdb55",
     "800002b7",
