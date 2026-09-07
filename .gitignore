@@ -1,0 +1,28 @@
+# Firmware/compiler outputs
+sw/build/
+*.elf
+*.bin
+*.map
+*.uart
+
+# Simulation outputs and generated vectors/images
+sim/*.out
+sim/*.vcd
+sim/program.hex
+sim/firmware.hex
+sim/monitor.hex
+
+# Gowin generated files
+gowin/impl/
+gowin/*.gprj.user
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini

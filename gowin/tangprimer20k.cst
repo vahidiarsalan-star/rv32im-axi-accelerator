@@ -1,0 +1,33 @@
+// Gowin physical constraints for Tang Primer 20K + Dock (GW2A-LV18PG256C8/I7)
+// Pin locations from the Sipeed TangPrimer-20K-example reference (Dock ext-board)
+// and confirmed against Sipeed's rocket-chip port (clock=H11, nreset=T10, uart=M11).
+//
+// NOTE: the Dock IO banks used here are 3.3 V per the board schematic, so IO_TYPE is
+// LVCMOS33. (The Gowin IDE may default a newly-added constraint to LVCMOS18 — always
+// override it to LVCMOS33 for these Dock pins.) VERIFY against your schematic.
+
+// 27 MHz on-board crystal oscillator (core board)
+IO_LOC  "clk" H11;
+IO_PORT "clk" IO_TYPE=LVCMOS33;
+
+// Reset button (active-low). Dock user key at T10. T10 is dual-purpose SSPI;
+// Project > Configuration > Place & Route > Dual-Purpose Pin must have
+// "Use SSPI as regular IO" enabled (SSPI=true in process_config.json).
+IO_LOC  "rst_n_btn" T10;
+IO_PORT "rst_n_btn" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// UART TX -> on-board BL702 USB-UART bridge (Dock)
+IO_LOC  "uart_tx_pin" M11;
+IO_PORT "uart_tx_pin" IO_TYPE=LVCMOS33 DRIVE=8;
+
+// UART RX <- on-board BL702 USB-UART bridge (Dock)
+IO_LOC  "uart_rx_pin" T13;
+IO_PORT "uart_rx_pin" IO_TYPE=LVCMOS33 PULL_MODE=UP;
+
+// Dock user LEDs (3 wired here; add more from the board silkscreen as needed).
+IO_LOC  "led[0]" N16;
+IO_LOC  "led[1]" N14;
+IO_LOC  "led[2]" L14;
+IO_PORT "led[0]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_PORT "led[1]" IO_TYPE=LVCMOS33 DRIVE=8;
+IO_PORT "led[2]" IO_TYPE=LVCMOS33 DRIVE=8;
