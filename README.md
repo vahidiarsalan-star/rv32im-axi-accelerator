@@ -1,62 +1,70 @@
-# RISC-V pipeline & FPGA SoC
+# RV32I Pipelined CPU
 
-[![RTL and firmware verification](https://github.com/vahidiarsalan-star/rv32im-axi-accelerator/actions/workflows/verify.yml/badge.svg)](https://github.com/vahidiarsalan-star/rv32im-axi-accelerator/actions/workflows/verify.yml)
+[![Verification](https://github.com/vahidiarsalan-star/rv32im-axi-accelerator/actions/workflows/verify.yml/badge.svg)](https://github.com/vahidiarsalan-star/rv32im-axi-accelerator/actions/workflows/verify.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A five-stage in-order RISC-V processor with operand forwarding, pipeline hazard
-handling, byte-addressable memory operations, and a bare-metal UART loader.
-The project connects CPU microarchitecture, synthesizable Verilog, C startup and
-linking, serial I/O, and reproducible simulation.
+This is my FPGA RISC-V project for the Tang Primer 20K. I built a five-stage
+RV32I core, wrapped it in a small SoC, and wrote the firmware and testbenches
+needed to run C programs through a UART loader.
 
-**Current milestone:** an RV32I integer datapath and UART SoC verified in simulation.
-The repository name, `rv32im-axi-accelerator`, describes the roadmap: multiplication/
-division and an AXI accelerator are planned. This revision does not claim ISA
-compliance, FPGA timing closure, or completed physical-board validation.
+The current revision is verified in simulation. RV32M, AXI, and physical-board
+bring-up are the next stages of the project; the repository name reflects that
+end goal.
 
-![Implemented CPU and SoC architecture](docs/assets/architecture.svg)
+## What works
 
-## Start here
+- IF / ID / EX / MEM / WB pipeline
+- EX/MEM and MEM/WB forwarding
+- One-cycle load-use stall
+- Branch and jump recovery in EX
+- RV32I integer ALU, branches, jumps, byte/halfword/word loads and stores
+- 4 KiB unified RAM, UART TX/RX, 16-byte RX FIFO, and LED register
+- Bare-metal C startup and linker scripts
+- Resident UART monitor that loads checksummed application images
+- Automated CPU, UART, monitor, and compiled C application tests
 
-| If you want to… | Read / run |
-| --- | --- |
-| Review the engineering in five minutes | [Reviewer guide](docs/REVIEWER_GUIDE.md) |
-| Understand the datapath and interfaces | [Architecture](docs/ARCHITECTURE.md) · [design decisions](docs/DESIGN_DECISIONS.md) |
-| Inspect measured evidence | [Results](docs/RESULTS.md) · [verification coverage](docs/VERIFICATION.md) |
-| Reproduce the system demo | [Build and demo instructions](sw/README.md) |
-| Assess implementation boundaries | [ISA support](docs/ISA_SUPPORT.md) · [FPGA bring-up status](docs/FPGA_BRINGUP.md) |
+## Block diagram
 
-## Engineering highlights
+```mermaid
+flowchart LR
+    IF[IF<br/>Fetch] --> ID[ID<br/>Decode]
+    ID --> EX[EX<br/>ALU / Branch]
+    EX --> MEM[MEM<br/>Load / Store]
+    MEM --> WB[WB<br/>Writeback]
+    MEM -. forwarding .-> EX
+    WB -. forwarding .-> EX
+    EX -. redirect / flush .-> IF
 
-- **Data hazards:** EX/MEM and MEM/WB operand forwarding, youngest-producer
-  priority, write-first register-file reads, and a conservative load-use bubble.
-- **Control flow:** EX-stage branch/jump resolution, JAL/JALR link data, and
-  suppression of younger wrong-path side effects.
-- **Memory semantics:** little-endian SB/SH/SW lane enables and signed/unsigned
-  byte/halfword extraction, exercised with neighbor-byte preservation tests.
-- **Hardware/software interface:** 4 KiB SoC RAM, 16-byte receive FIFO, polling
-  UART driver, explicit linker regions, and checksummed serial program loading.
-- **Verification:** directed and seeded CPU programs, malformed UART frames,
-  negative loader commands, fresh C builds, and serially uploaded hello/echo
-  programs. Failing simulations and timeouts propagate to CI.
+    PC[PC builds C program] --> RX[UART RX + FIFO]
+    RX --> MON[Resident monitor]
+    MON --> RAM[4 KiB RAM]
+    RAM --> CPU[RV32I CPU]
+    CPU --> TX[UART TX]
+```
 
-## Reproduce
+## Run the tests
 
-Requirements: Python 3, Icarus Verilog, and bare-metal RISC-V GCC/binutils on PATH.
-The build detects `riscv32-unknown-elf-` or `riscv64-unknown-elf-`; both compile
-with `-march=rv32i -mabi=ilp32`.
+Requirements: Python 3, Icarus Verilog, and a bare-metal RISC-V GCC toolchain.
+The scripts detect either a `riscv32-unknown-elf-` or
+`riscv64-unknown-elf-` tool prefix.
 
 ```sh
-git clone https://github.com/vahidiarsalan-star/rv32im-axi-accelerator.git
-cd rv32im-axi-accelerator
 python sim/run_tests.py
 ```
 
-Without a cross-compiler, use `python sim/run_tests.py --rtl-only`.
-With `--waves`, CPU traces are retained for GTKWave. Every run writes logs and
-a source-identified JSON summary to `build/verification/`.
+For RTL-only testing:
 
-The full regression builds the monitor and applications from source, sends
-machine code through the simulated RX pin, and checks TX output:
+```sh
+python sim/run_tests.py --rtl-only
+```
+
+The full regression builds the monitor and applications from source, sends the
+applications through the simulated UART RX pin, and checks the serial output.
+The current run has 19 passing checks. Details are in
+[docs/VERIFICATION.md](docs/VERIFICATION.md) and
+[docs/RESULTS.md](docs/RESULTS.md).
+
+Example output from the uploaded C demo:
 
 ```text
 RV32I C arithmetic demo
@@ -65,26 +73,26 @@ RV32I C arithmetic demo
 tick
 ```
 
-This is a simulated software-on-RTL demo. See the [recorded run](docs/RESULTS.md)
-for test counts, tool versions, image sizes, and its limits.
+## Repository layout
 
-## Repository map
-
-| Directory | Role |
+| Folder | Contents |
 | --- | --- |
-| [`rtl/`](rtl/README.md) | CPU, ALU, decoder, register file, SoC, UART |
-| [`sim/`](sim/README.md) | Program generators, testbenches, pin observer, regression runner |
-| [`sw/`](sw/README.md) | C monitor/applications, startup, linker scripts, portable build |
-| [`gowin/`](gowin/README.md) | Tang Primer 20K project, pin/clock constraints, default image |
-| [`docs/`](docs/README.md) | Architecture, decisions, evidence, limitations, roadmap |
-| [`.github/`](.github/workflows/verify.yml) | Automated verification and contribution templates |
+| [`rtl/`](rtl/) | CPU, decoder, ALU, register file, SoC, and UART RTL |
+| [`sim/`](sim/) | Testbenches, test generators, and regression runner |
+| [`sw/`](sw/) | Startup code, linker scripts, monitor, and C examples |
+| [`gowin/`](gowin/) | Tang Primer 20K project and constraints |
+| [`docs/`](docs/) | Architecture, memory map, verification, FPGA status, and roadmap |
 
-## Next milestones
+## Current status
 
-Improve instruction legality and memory handshakes; infer synchronous FPGA
-BSRAM and establish a routed timing baseline; then add RV32M and verify its
-edge cases before introducing AXI. Each milestone has acceptance criteria in
-the [roadmap](docs/ROADMAP.md). The [accelerator proposal](docs/ACCELERATOR_PLAN.md)
-is explicitly future work.
+Simulation is working, including serial loading of freshly compiled `hello.c`
+and `echo.c`. The saved Gowin run synthesized but did not complete placement
+because reset uses the T10 SSPI pin. The project setting must allow SSPI as
+regular I/O before the board build can be completed.
 
-Licensed under [MIT](LICENSE). Contributions: [workflow and review checklist](CONTRIBUTING.md).
+The core is not yet a full compliance target: there are no exceptions, CSRs,
+interrupts, privileged modes, or M extension. See
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the exact implementation and
+[docs/ROADMAP.md](docs/ROADMAP.md) for the next steps.
+
+MIT licensed.

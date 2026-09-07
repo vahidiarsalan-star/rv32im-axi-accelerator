@@ -1,87 +1,77 @@
-# Firmware, C applications, and serial loading
+# Software
 
-The resident monitor runs in the lower 2 KiB of a 4 KiB SoC RAM. It receives
-checksummed machine words, loads an application at `0x800`, and makes a one-way
-jump into that image. The PC compiles C; the soft CPU executes the resulting
-RV32I instructions.
+The PC compiles the firmware; the FPGA CPU runs the resulting RV32I machine
+code. The build is freestanding: no operating system, libc, or default startup
+files.
 
-## Portable build
+## Build
 
-From the repository root, with Python 3 and GNU bare-metal RISC-V GCC/binutils:
+From the repository root:
 
 ```sh
 python sw/build.py
-python sim/run_tests.py
 ```
 
-The first command builds monitor, uploaded hello and echo, and a standalone
-hello image into `sw/build/`. The regression builds its own fresh images in
-`build/verification/`, so it does not rely on a stale checked-in binary.
+The script finds a compatible GNU RISC-V toolchain and builds:
 
-`riscv32-unknown-elf-` and `riscv64-unknown-elf-` prefixes are detected; set
-`RISCV_PREFIX` to select another compatible prefix. Both use RV32I/ILP32, no
-standard library, and no implicit start files. Small-data addressing and linker
-relaxation are disabled because startup does not initialize `gp`.
+- `monitor`: resident UART loader
+- `hello`: arithmetic and LED demo
+- `echo`: UART receive/transmit demo
+- `hello_standalone`: smoke-test image linked at reset address
 
-For an individual image or an intentional board-image update:
+Use `RISCV_PREFIX` to choose a different tool prefix.
 
 ```sh
 python sw/build.py --target hello
 python sw/build.py --target monitor --update-board-image
 ```
 
-The checked-in `gowin/firmware.hex` is a convenience boot image; rebuild it with
-the chosen compiler before a new hardware run.
+The second command intentionally updates `gowin/firmware.hex`.
 
-## Board demo
+## Upload an application
 
-Follow [FPGA bring-up](../docs/FPGA_BRINGUP.md) to apply the pin/clock constraints
-and SSPI-as-regular-IO option, rebuild the FPGA, and establish a valid routed
-image. Physical-board validation is still an open milestone.
+The monitor runs at 115200 baud, 8N1, no flow control. After reset it prints:
 
-1. Open a serial terminal at **115200 baud, 8N1, no flow control**.
-2. Reset the board and wait for `RV32I UART monitor` and the `>` prompt.
-3. Send `sw/build/hello.uart` as a text file. It contains the load header, word
-   payload, and `G 00000800` command.
-4. Expect the arithmetic demo to print 49 and 25, then `tick`; the application
-   also toggles the LED register.
-5. Reset, send `sw/build/echo.uart`, and type text to exercise receive and transmit.
+```text
+RV32I UART monitor
+L addr words sum + 8-hex words
+D addr words | G addr | H
+App: 00000800..00000DFF
+>
+```
 
-The simulation regression performs these software/RTL workflows through serial
-pins. It does not replace the physical-board check above.
+Send `sw/build/hello.uart` as a text file. It contains the load command,
+machine words, checksum, and final jump command. The expected output includes:
 
-## Source map
+```text
+OK 0000009A WORDS
+GO 00000800
+RV32I C arithmetic demo
+37 + 12 = 49
+37 - 12 = 25
+tick
+```
+
+Reset the board before sending `echo.uart`. Uploaded applications do not
+return to the monitor.
+
+## Source files
 
 | File | Purpose |
 | --- | --- |
-| [monitor.c](monitor.c) | L/D/G/H parser, range checks, checksum and jump |
-| [uart.c](uart.c), [uart.h](uart.h) | Volatile MMIO polling and formatting without hardware division |
-| [crt0.S](crt0.S), [crt0_app.S](crt0_app.S) | Stack initialization, BSS clearing, main entry |
-| [link_monitor.ld](link_monitor.ld) | Monitor's 2 KiB allocation |
-| [link_app.ld](link_app.ld) | 1536-byte application allocation; 512-byte stack budget |
-| [link.ld](link.ld) | Standalone 4 KiB image for the C smoke test |
-| [hello.c](hello.c), [echo.c](echo.c) | Arithmetic/LED and bidirectional UART examples |
-| [build.py](build.py) | Portable compiler, binary, hex, upload and size workflow |
+| [monitor.c](monitor.c) | Loader commands, range checks, checksum, and jump |
+| [uart.c](uart.c) | Polling UART and number formatting |
+| [crt0.S](crt0.S) | Monitor/standalone startup |
+| [crt0_app.S](crt0_app.S) | Uploaded application startup |
+| [link_monitor.ld](link_monitor.ld) | Lower 2 KiB monitor layout |
+| [link_app.ld](link_app.ld) | 1536-byte application and 512-byte stack layout |
+| [link.ld](link.ld) | Standalone 4 KiB layout |
+| [hello.c](hello.c) | Arithmetic, UART, and LED demo |
+| [echo.c](echo.c) | UART echo demo |
+| [build.py](build.py) | Portable build and image conversion |
 
-Application code, static data and BSS must fit below `0xe00`. Link-time checks
-bound static allocation; they do not prove runtime stack usage fits. Avoid
-division, floating point and library calls unless their runtime support is
-explicitly supplied. Uploaded applications own the CPU; reset returns to the
-resident monitor.
+The linker checks static image size. It cannot prove runtime stack usage fits.
+Compile with `-march=rv32i -mabi=ilp32`; RV32M is not implemented yet.
 
-## Existing Windows scripts
-
-The original `build.ps1` and `build_app.ps1` remain available. Run them from
-`sw/` using PowerShell; for example:
-
-```powershell
-.\build_app.ps1 -Source .\hello.c -OutputName hello_upload
-```
-
-`build.ps1` updates `gowin/firmware.hex` and `sim/monitor.hex`.
-`gen_firmware.py` is an earlier hand-assembled firmware generator and can
-overwrite the board boot image; it is not used by the current regression.
-`build_machine_sample.ps1` writes an inspectable hand-coded upload example.
-
-See the [memory map and protocol](../docs/MEMORY_MAP.md) for exact registers,
-address aliases, sticky flags and loader failure semantics.
+The older PowerShell build scripts are kept for Windows use. The main regression
+uses `build.py` so the same flow runs locally and in GitHub Actions.

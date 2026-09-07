@@ -1,59 +1,60 @@
-# Recorded verification results
+# Test results
 
-## Local regression, 2026-09-07
+Latest local run: **2026-09-07**
 
-Command: `python sim/run_tests.py --waves`, run on Windows with Python 3.14.6,
-Icarus Verilog 13.0, and riscv32-unknown-elf GCC 14.2.0.
+```text
+19 checks passed
+Python 3.14.6
+Icarus Verilog 13.0
+riscv32-unknown-elf GCC 14.2.0
+```
 
-**19 checks passed:** 11 CPU programs, two intentional-failure harness checks,
-two UART configurations, standalone C execution, the monitor protocol, and two
-serially uploaded C applications. See the
-[machine-readable snapshot](evidence/verification-2026-09-07.json) for the
-source SHA-256 and complete per-test records.
+## CPU tests
 
-| CPU program | Static image words | Harness cycles | Load-stall cycles | Redirect events |
+| Program | Image words | Cycles | Load-stall cycles | Redirects |
 | --- | ---: | ---: | ---: | ---: |
 | Baseline | 194 | 202 | 1 | 6 |
-| Hazard interactions | 73 | 76 | 3 | 2 |
+| Hazards | 73 | 76 | 3 | 2 |
 | Memory lanes | 149 | 149 | 0 | 1 |
 | Control flow | 135 | 143 | 0 | 10 |
 | Immediate edges | 231 | 231 | 0 | 1 |
-| Each seeded ALU case (6) | 245 | 245 | 0 | 1 |
+| Six seeded ALU tests | 245 each | 245 each | 0 | 1 each |
 
-These are harness counters, not CPI or retired-instruction counts. Static image
-words include instructions on unexecuted paths. The deterministic reset release
-changed baseline accounting from an older 203-cycle log to 202; this is not a
-hardware performance improvement. See [measurement definitions](VERIFICATION.md).
+These are testbench cycle counts, not CPI measurements. The programs contain
+checks and some instructions that are skipped by branches.
 
-## Firmware footprints
+## Firmware size
 
-| Image | Binary bytes (before word padding) | Link region |
-| --- | ---: | --- |
-| Resident monitor | 1930 | Lower 2048 bytes; additionally 12 bytes of BSS |
-| Uploaded hello | 615 | 1536-byte application region |
-| Uploaded echo | 327 | 1536-byte application region |
-| Standalone hello smoke image | 615 | Standalone 4 KiB map |
+| Image | Binary size |
+| --- | ---: |
+| Resident monitor | 1930 bytes + 12 bytes BSS |
+| Hello application | 615 bytes |
+| Echo application | 327 bytes |
 
-Linker assertions bound static allocation; stack use is not measured. The
-monitor ELF reports an RWX load segment because this simple system runs code
-and data from the same unprotected RAM. Toolchain versions can change sizes;
-the regression rebuilds rather than requiring these numbers to be identical.
+The monitor has 2048 bytes for code and static data. Uploaded applications have
+1536 bytes plus a separate 512-byte stack area.
 
-## Serial evidence
+## Serial demo
 
-[Selected transcripts](evidence/serial-demo-2026-09-07.md) show rejected commands,
-successful machine-code loading, and the freshly compiled hello and echo apps.
-TX output is decoded from the serial pin, including stop-bit checking. UART unit
-tests transport every byte value at divisors 10 and 234 and check false-start
-rejection and a malformed stop bit.
+```text
+> ERR NO IMAGE
+> ERR RANGE
+> ERR SUM 00000013
+> OK 00000006 WORDS
+> GO 00000800
+!
+*** UART MONITOR PASS ***
+```
 
-## What these results do not establish
+```text
+> OK 0000009A WORDS
+> GO 00000800
+RV32I C arithmetic demo
+37 + 12 = 49
+37 - 12 = 25
+tick
+*** UART HELLO APP PASS ***
+```
 
-There is no complete ISA compliance result, independent per-retirement lockstep,
-coverage percentage, formal proof, current FPGA utilization/Fmax, power result,
-or physical-board demonstration. The [historical Gowin placement error](evidence/gowin-2026-08-01.md)
-belongs to an older netlist and is not a current PPA result.
-
-The badge in the [root README](../README.md) links to live hosted CI, separate
-from this dated local snapshot. Rerun the same command to generate current logs
-and compare source digests before citing this evidence for a later revision.
+The testbench decodes these bytes from the simulated TX pin. FPGA timing and
+physical-board results are still pending.

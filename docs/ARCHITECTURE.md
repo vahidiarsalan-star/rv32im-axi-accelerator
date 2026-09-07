@@ -1,105 +1,93 @@
-# Architecture and interfaces
+# Architecture
 
-This describes the checked-in implementation. The repository name names the
-long-term RV32IM/AXI goal; the current core implements an RV32I integer datapath
-for controlled bare-metal programs. See [ISA scope](ISA_SUPPORT.md) before
-compiling other software.
+## Pipeline
 
-## CPU organization
+The core is an in-order five-stage design:
 
-```mermaid
-flowchart LR
-    IF["IF · PC / instruction read"] --> ID["ID · decode / register read"]
-    ID --> EX["EX · forwarding / ALU / branch"]
-    EX --> MEM["MEM · load / store lanes"]
-    MEM --> WB["WB · destination / data"]
-    WB -. "write-first register read" .-> ID
-    MEM -. "newest producer" .-> EX
-    WB -. "older producer" .-> EX
-    EX -. "redirect + kill younger controls" .-> IF
-```
-
-Instructions advance in order through IF/ID, ID/EX, EX/MEM, and MEM/WB registers.
-IF/ID has a valid bit. Later bubbles are represented by cleared side-effect and
-control-transfer bits, rather than by a retirement-valid signal in every stage.
-There is no reorder buffer, speculation beyond sequential fetch, or architectural
-retirement interface.
-
-| Stage | Work | Relevant state / source |
-| --- | --- | --- |
-| IF | Select reset PC, sequential PC+4, hold, or redirect | `pc`, `next_pc` in [rv32i_core.v](../rtl/rv32i_core.v) |
-| ID | Extract fields and immediates; read two register operands | [decoder.v](../rtl/decoder.v), [regfile.v](../rtl/regfile.v) |
-| EX | Select forwarded operands; compute arithmetic, address, branch target and predicate | `fwd_r1`, `fwd_r2`, `branch_taken` |
-| MEM | Align the external word address; apply byte enables; extend loads | `dmem_be`, `wdata`, `load_data` |
-| WB | Select ALU, load, or PC+4 and update a nonzero destination | `wb_data`, `wb_rd`, `wb_reg_write` |
-
-## Dependencies and control recovery
-
-EX/MEM forwarding has priority over MEM/WB when both destinations match the
-consumer: the younger result must win. Destination x0 never forwards. The
-EX/MEM value multiplexer selects the actual writeback value (including PC+4
-for calls and extended data for loads), not just an ALU address. The two
-forwarded register values also feed branch comparison and store data.
-
-The register file explicitly bypasses the current writeback value to matching
-read ports. Its initial block initializes registers at power-up/simulation start;
-there is no register-file reset port. Software must not assume a warm reset
-clears all general-purpose registers. x0 reads as zero and rejects writes.
-
-A load in ID/EX whose nonzero destination matches either raw source field in
-IF/ID holds PC and IF/ID for one cycle. It inserts a bubble into ID/EX while
-older instructions drain. The detector does not qualify those fields with
-`uses_rs1`/`uses_rs2`; some immediate bit patterns can therefore cause an
-unnecessary stall. This is a performance limitation, not a feature to count as
-useful work.
-
-Branches and jumps resolve in EX. A taken transfer redirects PC and clears
-the younger IF/ID instruction and the next ID/EX controls. Two sequentially
-fetched instructions can be discarded. PC redirection takes priority over
-holding for a stall. JAL/JALR produce PC+4; JALR clears target bit zero.
-Instruction misalignment traps are not implemented.
-
-## Core memory contract
-
-Instruction and data reads are combinational. Stores are sampled at a rising
-clock edge. The core has separate instruction/data ports, but [soc_top.v](../rtl/soc_top.v)
-connects both to one unified memory array with two read paths. There is no
-`ready`, response-valid, error, or backpressure signal.
-
-| Signal | Meaning |
+| Stage | Main work |
 | --- | --- |
-| `imem_addr`, `imem_rdata` | Byte PC address and same-cycle instruction word |
-| `dmem_addr` | Word-aligned data address; low bits are cleared after lane selection |
-| `dmem_re` | Load-side access qualifier, including destructive UART FIFO reads |
-| `dmem_we`, `dmem_be[3:0]` | Write qualifier and little-endian byte lanes |
-| `dmem_wdata`, `dmem_rdata` | Aligned write payload and same-cycle read word |
+| IF | Select PC and read the next instruction |
+| ID | Decode instruction and read the register file |
+| EX | Forward operands, run the ALU, and resolve branches |
+| MEM | Read or write memory and select byte lanes |
+| WB | Write ALU, load, or PC+4 data to the register file |
 
-Byte loads select one of four lanes and sign- or zero-extend. Halfword loads
-select the lower or upper half. SB/SH shift both byte enables and payload;
-SW enables all four lanes. Only naturally aligned halfword/word accesses are
-supported by the software contract. Misaligned accesses do not cross words and
-do not trap. A synchronous BSRAM replacement therefore requires a core interface
-change, not just changing the RAM declaration.
+Pipeline state is stored in IF/ID, ID/EX, EX/MEM, and MEM/WB registers.
+Instructions enter in order and complete in order.
 
-## SoC and external inputs
+## Hazards
 
-The SoC uses the input clock directly: no PLL is instantiated. A four-register
-shift chain samples the reset button; the internal reset follows the sampled
-button level after four edges. It is not a mechanical debounce circuit. UART RX
-uses a two-flop input synchronizer and center sampling. Neither simulation nor
-these structures constitute CDC signoff or a measured metastability MTBF.
+EX/MEM forwarding has priority over MEM/WB forwarding because it contains the
+newer result. The same forwarded values are used for ALU inputs, branch
+comparisons, and store data.
 
-RX valid pulses feed a 16-byte FIFO. Push advances the write pointer, a qualified
-read advances the read pointer, and simultaneous push/pop preserves occupancy.
-A pop can make room for a push when the FIFO begins full. Overflow discards the
-new byte and sets a sticky overrun bit; framing errors set a separate sticky bit.
-Both clear on reset. TX accepts one byte only when idle; software polls busy.
+The register file also returns the current writeback value when a read and write
+use the same address. Writes to x0 are ignored and reads from x0 always return
+zero.
 
-At the default 27 MHz / 115200 setting, integer division yields 234 clocks per
-bit (approximately 115384.6 baud, +0.1603% from the requested rate). The timer is
-16 bits. Arbitrary parameter choices outside the counter range or with a very
-small divisor are not validated by the modules.
+A load followed immediately by an instruction that uses its destination inserts
+one bubble. PC and IF/ID are held while older instructions continue. The current
+detector compares raw rs1/rs2 fields, so a few instructions can stall even when
+one field is not an actual source. That is harmless functionally but costs a
+cycle.
 
-Read the [memory map and loader contract](MEMORY_MAP.md),
-[design decisions](DESIGN_DECISIONS.md), and [verification](VERIFICATION.md)
-for the boundaries of these interfaces.
+Branches and jumps are resolved in EX. A taken transfer redirects the PC and
+clears the two younger instructions. JAL and JALR write PC+4; JALR clears bit
+zero of the target.
+
+## Memory interface
+
+Instruction and data reads are combinational. Stores happen on a rising clock
+edge and use four byte enables. This keeps the first implementation simple, but
+it is not the right interface for a larger synchronous FPGA block RAM.
+
+Loads support LB, LBU, LH, LHU, and LW. Stores support SB, SH, and SW.
+Halfword and word accesses are expected to be naturally aligned. Misaligned
+accesses and bus faults do not raise exceptions.
+
+The FPGA SoC uses 4 KiB of unified RAM. The CPU testbench uses a separate 16 KiB
+model so it can reserve a TOHOST address for pass/fail reporting.
+
+## SoC peripherals
+
+`soc_top` adds:
+
+- UART transmitter
+- UART receiver with a two-flop input synchronizer
+- 16-byte receive FIFO
+- Sticky overrun and framing-error flags
+- Three-bit LED output register
+- Four-cycle sampled reset input
+
+UART is configured for 115200 baud at a 27 MHz input clock. Integer clock
+division gives 234 clocks per bit, or about 115384.6 baud.
+
+## Software flow
+
+The monitor occupies the lower 2 KiB of RAM. An uploaded application uses
+`0x800..0xdff`, with the last 512 bytes reserved for stack. Startup code sets
+SP, clears BSS, calls `main`, and loops if `main` returns.
+
+Applications are compiled on the PC for `rv32i/ilp32`. The build converts the
+binary to hexadecimal words and wraps it in a small UART command stream. The
+monitor checks the range and a 32-bit additive checksum before jumping to it.
+
+This is a development loader for trusted images, not a secure boot mechanism.
+
+## ISA scope
+
+Implemented instructions:
+
+- LUI, AUIPC
+- ADD, SUB, SLL, SLT, SLTU, XOR, SRL, SRA, OR, AND
+- ADDI, SLTI, SLTIU, XORI, ORI, ANDI, SLLI, SRLI, SRAI
+- LB, LBU, LH, LHU, LW, SB, SH, SW
+- BEQ, BNE, BLT, BGE, BLTU, BGEU
+- JAL, JALR
+
+Not implemented: FENCE, ECALL/EBREAK traps, CSRs, exceptions, interrupts,
+privileged modes, compressed instructions, atomics, floating point, vectors,
+or RV32M multiply/divide instructions.
+
+The decoder does not yet reject every reserved encoding. Software should be
+compiled with `-march=rv32i -mabi=ilp32`.

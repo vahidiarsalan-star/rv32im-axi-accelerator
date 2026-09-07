@@ -1,48 +1,39 @@
-# Roadmap and acceptance criteria
+# Roadmap
 
-The current deliverable is the RV32I datapath + serial-loader simulation
-platform. Prioritize reproducibility and FPGA memory/timing closure before
-expanding the accelerator scope.
+## Done
 
-| Milestone | State | Evidence required to call it complete |
-| --- | --- | --- |
-| Five-stage integer pipeline | Implemented; selected regressions pass | Directed dependencies, branches, memory lanes and repeatable ALU tests |
-| C runtime and resident loader | Implemented; simulated | Fresh monitor/app builds; accepted/rejected commands; uploaded C output on serial TX |
-| Automated regression | Added | Green hosted CI using the checked-in command; retained logs and source digest |
-| ISA legality / observability | Open | Validate reserved encodings; explicit exception policy; retirement-valid trace; independent reference comparison |
-| FPGA memory subsystem | Open | Synchronous BSRAM-compatible timing contract, stalls/backpressure, same regression passing |
-| Routed FPGA baseline | Open | Current-source utilization, setup/hold report, constraint review and reproducible build settings |
-| Board demonstration | Open | Reset/boot/upload/echo transcript and board capture tied to a source revision |
-| RV32M extension | Planned | All eight operations, dependency interlocks, signed/unsigned high products, division corner cases |
-| AXI4-Lite accelerator prototype | Planned | Separate AW/W acceptance, held responses under backpressure, CSR semantics, scoreboard tests |
-| INT8 dot product | Planned | Bit-exact software reference, overflow contract, measured cycles including data movement |
-| External memory / DMA | Exploratory | Sustained bandwidth, arbitration, reset/error behavior, coherency/ownership contract |
+- Five-stage RV32I pipeline
+- Forwarding, load-use stall, and branch recovery
+- Byte, halfword, and word memory operations
+- UART TX/RX with a receive FIFO
+- Bare-metal C startup and linker scripts
+- Checksummed UART application loader
+- Directed and seeded simulation regression
+- Compiled hello and echo applications tested over the serial pins
+- GitHub Actions verification workflow
 
-## Verification backlog
+## Next
 
-1. Independent ISA reference/compliance tests and per-retirement checks.
-2. Illegal/reserved encoding and instruction/data alignment behavior.
-3. Exhaustive RX FIFO boundary transitions and reset during UART traffic.
-4. Baud tolerance sweeps, malformed/truncated loader streams and recovery.
-5. Stack high-water measurement and stress at application size boundaries.
-6. CDC/RDC review and timing constraints appropriate to physical implementation.
+1. Complete FPGA placement and routing with the SSPI reset-pin setting.
+2. Replace the asynchronous SoC RAM interface with synchronous block RAM.
+3. Add a retirement-valid trace and compare against an independent ISA model.
+4. Tighten instruction legality and define alignment/exception behavior.
+5. Capture a physical UART/LED board demo tied to a commit.
 
-## RV32M acceptance details
+## RV32M
 
-Implement MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, REMU. The multi-cycle unit
-needs operand/result validity and a stall protocol that neither loses nor
-repeats side effects. Check division by zero, signed minimum divided by -1,
-sign of remainder, and dependent instructions immediately before/after completion.
-Keep the compiler at RV32I until RTL and tests support RV32M.
+Add MUL, MULH, MULHSU, MULHU, DIV, DIVU, REM, and REMU using a multi-cycle unit
+and a pipeline stall handshake. Tests need to cover signed/unsigned high
+products, division by zero, minimum signed integer divided by -1, and dependent
+instructions on both sides of the unit.
 
-## Performance measurement plan
+The compiler stays at `-march=rv32i` until all RV32M operations pass.
 
-Add a valid retirement event before computing CPI. Measure workload instruction
-mix, active cycles, load stalls and redirect penalties separately from serial
-I/O and setup. For an accelerator, report compute cycles, transfer cycles and
-end-to-end speedup including software launch overhead. Do not convert the
-simulation clock period into a routed hardware frequency claim.
+## AXI accelerator
 
-Graphics and language-model demonstrations remain exploratory ideas. There is
-no HDMI pipeline, DDR controller, cache, DMA engine, or inference workload in
-the present implementation.
+After the memory interface is stable, add an AXI4-Lite control block and a small
+signed INT8 dot-product engine. The first version should use local buffers and
+compare every output against a C reference. DMA and external DDR come later.
+
+Measurements should separate compute, transfer, and software overhead. Report
+FPGA frequency only from a routed timing result for the same source revision.
